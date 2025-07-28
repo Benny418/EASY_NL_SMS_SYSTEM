@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡訊發送系統</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8" x-data="smsApp()">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">
+            <i class="fas fa-sms mr-2"></i>簡訊發送系統
+        </h1>
+        
+        <!-- 簡訊內容區塊 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                <i class="fas fa-edit mr-2"></i>簡訊內容
+            </h2>
+            
+            <!-- 簡訊模式選擇 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">簡訊類型</label>
+                <div class="flex space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" x-model="smsMode" value="ai" class="form-radio">
+                        <span class="ml-2">AI生成簡訊</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" x-model="smsMode" value="custom" class="form-radio">
+                        <span class="ml-2">自定義簡訊</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- AI生成區塊 -->
+            <div x-show="smsMode === 'ai'" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">提示詞</label>
+                <textarea 
+                    x-model="aiPrompt"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="例如：幫我生成一個週年慶促銷活動的簡訊"
+                ></textarea>
+                <button 
+                    @click="generateSMS()"
+                    class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    :disabled="isGenerating"
+                >
+                    <span x-show="!isGenerating">生成簡訊</span>
+                    <span x-show="isGenerating">
+                        <i class="fas fa-spinner fa-spin mr-1"></i>生成中...
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 簡訊內容輸入 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">簡訊內容</label>
+                <textarea 
+                    x-model="smsContent"
+                    @input="validateSMS()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="4"
+                    maxlength="140"
+                    placeholder="請輸入簡訊內容..."
+                ></textarea>
+                <div class="mt-1 text-sm">
+                    <span :class="charCount > 70 ? 'text-red-600' : 'text-gray-600'">
+                        字數: <span x-text="charCount"></span>/70
+                    </span>
+                    <span x-show="charCount > 70" class="text-red-600 ml-2">
+                        (最多140字)
+                    </span>
+                </div>
+            </div>
+            
+            <!-- 字數限制選擇 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">字數限制</label>
+                <select x-model="maxLength" @change="validateSMS()" class="px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="70">70字（一般簡訊）</option>
+                    <option value="140">140字（長簡訊）</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- 客戶查詢區塊 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                <i class="fas fa-search mr-2"></i>客戶查詢
+            </h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">自然語言查詢</label>
+                <textarea 
+                    x-model="customerQuery"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                    placeholder="例如：找出最近一個月有購買的客戶"
+                ></textarea>
+                <button 
+                    @click="queryCustomers()"
+                    class="mt-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                    :disabled="isQuerying"
+                >
+                    <span x-show="!isQuerying">查詢客戶</span>
+                    <span x-show="isQuerying">
+                        <i class="fas fa-spinner fa-spin mr-1"></i>查詢中...
+                    </span>
+                </button>
+            </div>
+            
+            <!-- 查詢結果 -->
+            <div x-show="customerResults.length > 0" class="mb-4">
+                <h3 class="text-lg font-medium mb-2">查詢結果</h3>
+                <div class="text-sm text-gray-600 mb-2">
+                    共找到 <span x-text="customerResults.length"></span> 筆資料
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">姓名</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">電話</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">選擇</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="(customer, index) in customerResults" :key="index">
+                                <tr>
+                                    <td class="px-4 py-2 text-sm text-gray-900" x-text="customer.CustName"></td>
+                                    <td class="px-4 py-2 text-sm text-gray-900" x-text="customer.MobileNumber"></td>
+                                    <td class="px-4 py-2">
+                                        <input 
+                                            type="checkbox" 
+                                            :value="customer.MobileNumber"
+                                            x-model="selectedCustomers"
+                                            class="form-checkbox"
+                                        >
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div x-show="customerResults.length === 0 && hasSearched" class="text-gray-500 text-center py-4">
+                查無符合條件的客戶
+            </div>
+        </div>
+        
+        <!-- 發送設定區塊 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                <i class="fas fa-clock mr-2"></i>發送設定
+            </h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">發送方式</label>
+                <div class="flex space-x-4">
+                    <label class="inline-flex items-center">
+                        <input type="radio" x-model="sendMode" value="immediate" class="form-radio">
+                        <span class="ml-2">立即發送</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" x-model="sendMode" value="scheduled" class="form-radio">
+                        <span class="ml-2">預約發送</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div x-show="sendMode === 'scheduled'" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">預約時間</label>
+                <input 
+                    type="datetime-local"
+                    x-model="scheduleDate"
+                    class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">收件人</label>
+                <textarea 
+                    x-model="recipients"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="請輸入電話號碼，多個號碼請用逗號分隔"
+                ></textarea>
+                <div class="mt-1 text-sm text-gray-600">
+                    已選擇 <span x-text="selectedCustomers.length"></span> 位客戶
+                    <button @click="addSelectedCustomers()" class="ml-2 text-blue-500 hover:underline">加入選擇的客戶</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 發送按鈕 -->
+        <div class="text-center">
+            <button 
+                @click="sendSMS()"
+                class="px-8 py-3 bg-red-500 text-white text-lg font-semibold rounded-md hover:bg-red-600 disabled:opacity-50"
+                :disabled="!canSend || isSending"
+            >
+                <span x-show="!isSending">
+                    <i class="fas fa-paper-plane mr-2"></i>
+                    <span x-text="sendMode === 'immediate' ? '立即發送' : '預約發送'"></span>
+                </span>
+                <span x-show="isSending">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>發送中...
+                </span>
+            </button>
+        </div>
+        
+        <!-- 狀態訊息 -->
+        <div x-show="statusMessage" 
+             :class="statusType === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700'"
+             class="border px-4 py-3 rounded relative mt-4" role="alert">
+            <span x-text="statusMessage"></span>
+            <button @click="statusMessage = ''" class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function smsApp() {
+            return {
+                // 資料
+                smsMode: 'ai',
+                aiPrompt: '',
+                smsContent: '',
+                maxLength: 70,
+                charCount: 0,
+                customerQuery: '',
+                customerResults: [],
+                selectedCustomers: [],
+                sendMode: 'immediate',
+                scheduleDate: '',
+                recipients: '',
+                isGenerating: false,
+                isQuerying: false,
+                isSending: false,
+                hasSearched: false,
+                statusMessage: '',
+                statusType: 'success',
+                
+                // 初始化
+                init() {
+                    this.validateSMS();
+                    this.scheduleDate = new Date().toISOString().slice(0, 16);
+                },
+                
+                // 驗證簡訊長度
+                validateSMS() {
+                    this.charCount = this.smsContent.length;
+                },
+                
+                // 生成簡訊
+                async generateSMS() {
+                    if (!this.aiPrompt.trim()) {
+                        this.showStatus('請輸入提示詞', 'error');
+                        return;
+                    }
+                    
+                    this.isGenerating = true;
+                    try {
+                        const response = await fetch('/api/generate-sms', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `prompt=${encodeURIComponent(this.aiPrompt)}&max_length=${this.maxLength}`
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            this.smsContent = data.content;
+                            this.validateSMS();
+                            this.showStatus('簡訊已生成', 'success');
+                        } else {
+                            this.showStatus(data.message || '生成失敗', 'error');
+                        }
+                    } catch (error) {
+                        this.showStatus('生成失敗，請稍後再試', 'error');
+                    } finally {
+                        this.isGenerating = false;
+                    }
+                },
+                
+                // 查詢客戶
+                async queryCustomers() {
+                    if (!this.customerQuery.trim()) {
+                        this.showStatus('請輸入查詢條件', 'error');
+                        return;
+                    }
+                    
+                    this.isQuerying = true;
+                    try {
+                        const response = await fetch('/api/parse-query', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `query=${encodeURIComponent(this.customerQuery)}`
+                        });
+                        
+                        const parseData = await response.json();
+                        
+                        if (parseData.success) {
+                            const queryResponse = await fetch('/api/query-customers', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: `sql_query=${encodeURIComponent(parseData.sql)}`
+                            });
+                            
+                            const queryData = await queryResponse.json();
+                            
+                            if (queryData.success) {
+                                this.customerResults = queryData.data;
+                                this.hasSearched = true;
+                                this.showStatus(`找到 ${queryData.count} 位客戶`, 'success');
+                            } else {
+                                this.showStatus(queryData.message || '查詢失敗', 'error');
+                            }
+                        } else {
+                            this.showStatus(parseData.message || '解析失敗', 'error');
+                        }
+                    } catch (error) {
+                        this.showStatus('查詢失敗，請稍後再試', 'error');
+                    } finally {
+                        this.isQuerying = false;
+                    }
+                },
+                
+                // 加入選擇的客戶
+                addSelectedCustomers() {
+                    if (this.selectedCustomers.length === 0) {
+                        this.showStatus('請先選擇客戶', 'error');
+                        return;
+                    }
+                    
+                    const currentRecipients = this.recipients ? this.recipients.split(',').map(r => r.trim()) : [];
+                    const newRecipients = [...new Set([...currentRecipients, ...this.selectedCustomers])];
+                    this.recipients = newRecipients.join(', ');
+                    this.showStatus('已加入選擇的客戶', 'success');
+                },
+                
+                // 發送簡訊
+                async sendSMS() {
+                    if (!this.smsContent.trim()) {
+                        this.showStatus('請輸入簡訊內容', 'error');
+                        return;
+                    }
+                    
+                    if (!this.recipients.trim()) {
+                        this.showStatus('請輸入收件人電話', 'error');
+                        return;
+                    }
+                    
+                    if (this.sendMode === 'scheduled' && !this.scheduleDate) {
+                        this.showStatus('請選擇預約時間', 'error');
+                        return;
+                    }
+                    
+                    this.isSending = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('message_body', this.smsContent);
+                        formData.append('recipient_no', this.recipients);
+                        
+                        if (this.sendMode === 'scheduled') {
+                            formData.append('message_class', 'SCHEDULED');
+                            formData.append('schedule_date', this.scheduleDate);
+                            
+                            const response = await fetch('/api/schedule-sms', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.success) {
+                                this.showStatus('簡訊已成功預約', 'success');
+                                this.resetForm();
+                            } else {
+                                this.showStatus(data.message || '預約失敗', 'error');
+                            }
+                        } else {
+                            const response = await fetch('/api/send-sms-now', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.success) {
+                                this.showStatus('簡訊已發送', 'success');
+                                this.resetForm();
+                            } else {
+                                this.showStatus(data.message || '發送失敗', 'error');
+                            }
+                        }
+                    } catch (error) {
+                        this.showStatus('發送失敗，請稍後再試', 'error');
+                    } finally {
+                        this.isSending = false;
+                    }
+                },
+                
+                // 重置表單
+                resetForm() {
+                    this.smsContent = '';
+                    this.aiPrompt = '';
+                    this.customerQuery = '';
+                    this.customerResults = [];
+                    this.selectedCustomers = [];
+                    this.recipients = '';
+                    this.validateSMS();
+                },
+                
+                // 顯示狀態訊息
+                showStatus(message, type) {
+                    this.statusMessage = message;
+                    this.statusType = type;
+                    setTimeout(() => {
+                        this.statusMessage = '';
+                    }, 5000);
+                },
+                
+                // 計算屬性
+                get canSend() {
+                    return this.smsContent.trim() && 
+                           this.recipients.trim() && 
+                           this.charCount <= this.maxLength;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # 簡訊發送系統 (SMS System)
 
-一個基於 FastAPI 的一頁式簡訊發送應用程式，支援 AI 生成簡訊、自然語言查詢客戶資料、預約發送等功能。
+一個基於 FastAPI 的一頁式簡訊發送應用程式，支援 AI 生成簡訊、自然語言查詢客戶資料、預約發送等功能。此系統程式碼由Kimi K2生成。
 
 ## 系統特色
 
@@ -70,6 +70,151 @@ graph TB
     Logger -.-> FastAPI
     Logger -.-> DBService
     Logger -.-> SMSService
+```
+
+### 資料流程圖
+
+```mermaid
+flowchart TD
+    A[使用者輸入] --> B{選擇模式}
+    B -->|AI生成| C[輸入提示詞]
+    B -->|自定義| D[輸入簡訊內容]
+    C --> E[Gemini API]
+    E --> F[生成簡訊]
+    F --> G[字數檢查]
+    D --> G
+    G --> H[輸入預約時間]
+    H --> I[自然語言查詢]
+    I --> J[LLM解析]
+    J --> K[SQL查詢]
+    K --> L[顯示客戶資料]
+    L --> M[確認發送]
+    M --> N[存入smsMessage]
+    N --> O[觸發發送API]
+    O --> P[定時檢查]
+    P --> Q[SMS Gateway]
+    Q --> R[更新狀態]
+```
+
+## 時序圖
+
+### 簡訊發送流程
+
+```mermaid
+sequenceDiagram
+    participant U as 使用者
+    participant Web as Web介面
+    participant API as FastAPI
+    participant DB as PostgreSQL
+    participant SMS as SMS Gateway
+    
+    U->>Web: 輸入簡訊內容與查詢條件
+    Web->>API: POST /generate-sms (AI模式)
+    API->>Gemini: 請求生成簡訊
+    Gemini-->>API: 返回簡訊內容
+    API-->>Web: 返回簡訊內容
+    
+    Web->>API: POST /query-customers
+    API->>Gemini: 解析自然語言查詢
+    Gemini-->>API: 返回SQL查詢
+    API->>DB: 執行SQL查詢
+    DB-->>API: 返回客戶資料
+    API-->>Web: 顯示客戶列表
+    
+    U->>Web: 確認發送
+    Web->>API: POST /schedule-sms
+    API->>DB: 存入smsMessage
+    DB-->>API: 確認儲存
+    API-->>Web: 返回成功訊息
+    
+    Note over API: 定時任務觸發
+    
+    API->>DB: 查詢待發送簡訊
+    DB-->>API: 返回簡訊列表
+    API->>SMS: 發送簡訊請求
+    SMS-->>API: 返回發送結果
+    API->>DB: 更新發送狀態
+```
+
+### AI查詢解析流程
+
+```mermaid
+sequenceDiagram
+    participant U as 使用者
+    participant Web as Web介面
+    participant API as FastAPI
+    participant Gemini as Google Gemini
+    participant DB as PostgreSQL
+    
+    U->>Web: 輸入自然語言查詢
+    Web->>API: POST /parse-query
+    API->>Gemini: 發送查詢請求
+    Note over Gemini: 限制只能查詢<br/>custInfo, orderMaster,<br/>orderDetail三個表
+    Gemini-->>API: 返回SQL查詢語句
+    API->>DB: 執行SQL查詢
+    DB-->>API: 返回查詢結果
+    API->>API: 個資隱碼處理
+    API-->>Web: 返回處理後的資料
+```
+
+## 資料庫設計
+
+### 實體關係圖
+
+```mermaid
+erDiagram
+    custInfo ||--o{ orderMaster : "has"
+    orderMaster ||--o{ orderDetail : "contains"
+    
+    custInfo {
+        string CustId PK
+        string CustName
+        string Gender
+        string MobileNumber
+        string HomeNumber
+        string Address
+        int Age
+        date Birthday
+        boolean Refuse
+        timestamp CreateDate
+    }
+    
+    orderMaster {
+        string OrderNo PK
+        timestamp OrderDate
+        string CustId FK
+        real Amount
+        smallint PayMethod
+        string DeliveryAddress
+        string Receiver
+        string ReceiverPhone
+        smallint OrderType
+        string TakerId
+        timestamp CreateDate
+    }
+    
+    orderDetail {
+        int rowkey PK
+        string OrderNo FK
+        string ProductId
+        string ProductTitle
+        real UnitPrice
+        smallint Qty
+        string BatchNo
+    }
+    
+    smsMessage {
+        int smskey PK
+        timestamp CreateDate
+        string MessageClass
+        string MessageBody
+        string RecipientNo
+        timestamp ScheduleDate
+        timestamp SendDate
+        string ReturnCode
+        string ReturnMessage
+        string MessageId
+    }
 ```
 
 ## 快速開始
@@ -368,69 +513,6 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
-
-## 開發過程記錄
-
-### 第1天：系統分析與設計
-- 完成系統需求分析
-- 設計資料庫架構
-- 建立系統架構圖和時序圖
-
-### 第2天：基礎建設
-- 建立專案結構
-- 設定開發環境
-- 建立資料庫連線模組
-
-### 第3天：核心功能開發
-- 實作 SMS Gateway 模組
-- 實作 AI 服務模組
-- 建立 FastAPI 路由
-
-### 第4天：前端開發
-- 建立一頁式介面
-- 整合 HTMX 和 Alpine.js
-- 實作即時互動功能
-
-### 第5天：測試與優化
-- 建立測試案例
-- 優化使用者體驗
-- 撰寫文件
-
-## 常見問題
-
-### Q1: 如何設定 Google Gemini API？
-A: 前往 [Google AI Studio](https://makersuite.google.com/app/apikey) 申請 API Key，並在 `.env` 檔案中設定 `GEMINI_API_KEY`。
-
-### Q2: 資料庫連線失敗怎麼辦？
-A: 檢查以下項目：
-- PostgreSQL 是否正在執行
-- 資料庫名稱、使用者名稱、密碼是否正確
-- 防火牆是否允許連線
-
-### Q3: SMS Gateway 連線失敗？
-A: 檢查：
-- SMS Gateway URL 是否正確
-- 網路連線是否正常
-- 認證資訊是否正確
-
-### Q4: 如何新增更多客戶資料？
-A: 可以直接在資料庫中插入資料，或使用系統提供的查詢功能篩選現有客戶。
-
 ## 授權
 
 本專案採用 MIT 授權條款，詳見 [LICENSE](LICENSE) 檔案。
-
-## 聯絡資訊
-
-如有問題或建議，請透過以下方式聯絡：
-- Email: support@sms-system.com
-- GitHub Issues: [專案Issues頁面](https://github.com/your-repo/sms-system/issues)
-
-## 更新日誌
-
-### v1.0.0 (2024-01-28)
-- 初始版本發布
-- 支援 AI 簡訊生成
-- 支援自然語言查詢
-- 支援預約發送
-- 完整的測試覆蓋

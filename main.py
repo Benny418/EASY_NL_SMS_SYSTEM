@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from contextlib import asynccontextmanager
 import uvicorn
 import logging
 import asyncio
@@ -27,11 +28,29 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """應用程式生命週期管理"""
+    # 啟動時執行
+    logger.info("簡訊發送系統啟動")
+    task = asyncio.create_task(scheduled_task())
+    
+    yield
+    
+    # 關閉時執行
+    logger.info("簡訊發送系統關閉")
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
 # 建立FastAPI應用程式
 app = FastAPI(
     title="簡訊發送系統",
     description="一頁式簡訊發送應用程式",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # 設定靜態檔案和模板
@@ -361,18 +380,6 @@ async def scheduled_task():
             await process_scheduled_sms()
         except Exception as e:
             logger.error(f"定時任務錯誤: {e}")
-
-# 啟動定時任務
-@app.on_event("startup")
-async def startup_event():
-    """應用程式啟動時執行"""
-    logger.info("簡訊發送系統啟動")
-    asyncio.create_task(scheduled_task())
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """應用程式關閉時執行"""
-    logger.info("簡訊發送系統關閉")
 
 if __name__ == "__main__":
     uvicorn.run(

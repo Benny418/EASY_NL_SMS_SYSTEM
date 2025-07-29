@@ -1,5 +1,5 @@
 -- 插入100筆客戶資料
-INSERT INTO public."custInfo" ("CustId", "CustName", "Gender", "MobileNumber", "HomeNumber", "Address", "Age", "Birthday", "Refuse", "CreateDate") VALUES
+INSERT INTO public.cust_info (cust_id, cust_name, gender, mobile_number, home_number, address, age, birthday, refuse, create_date) VALUES
 ('C001', '陳小明', '男', '0912345678', '0223456789', '台北市中山區南京東路一段100號', 35, '1988-05-15', false, NOW()),
 ('C002', '林美玲', '女', '0923456789', '0223456790', '台北市大安區忠孝東路四段200號', 28, '1995-08-22', false, NOW()),
 ('C003', '王大明', '男', '0934567890', '0223456791', '新北市板橋區文化路一段300號', 42, '1981-03-10', false, NOW()),
@@ -102,7 +102,7 @@ INSERT INTO public."custInfo" ("CustId", "CustName", "Gender", "MobileNumber", "
 ('C100', '李雅萍', '女', '0911234567', '0223456888', '花蓮縣玉里鎮中正路600號', 32, '1991-12-25', false, NOW());
 
 -- 插入50筆訂單主檔資料
-INSERT INTO public."orderMaster" ("OrderNo", "OrderDate", "CustId", "Amount", "PayMethod", "DeliveryAddress", "Receiver", "ReceiverPhone", "OrderType", "TakerId", "CreateDate") VALUES
+INSERT INTO public.order_master (order_no, order_date, cust_id, amount, pay_method, delivery_address, receiver, receiver_phone, order_type, taker_id, create_date) VALUES
 ('O001', '2024-01-15 10:30:00', 'C001', 2500.5, 1, '台北市中山區南京東路一段100號', '陳小明', '0912345678', 1, 'T001', NOW()),
 ('O002', '2024-01-16 14:20:00', 'C002', 1800.75, 2, '台北市大安區忠孝東路四段200號', '林美玲', '0923456789', 1, 'T002', NOW()),
 ('O003', '2024-01-17 09:15:00', 'C003', 3200.0, 1, '新北市板橋區文化路一段300號', '王大明', '0934567890', 2, 'T001', NOW()),
@@ -155,7 +155,7 @@ INSERT INTO public."orderMaster" ("OrderNo", "OrderDate", "CustId", "Amount", "P
 ('O050', '2024-03-06 11:15:00', 'C050', 3200.25, 2, '花蓮縣吉安鄉中正路100號', '陳美雪', '0951234567', 1, 'T002', NOW());
 
 -- 插入訂單明細資料（每筆訂單2-3個明細）
-INSERT INTO public."orderDetail" ("OrderNo", "ProductId", "ProductTitle", "UnitPrice", "Qty", "BatchNo") VALUES
+INSERT INTO public.order_detail (order_no, product_id, product_title, unit_price, qty, batch_no) VALUES
 -- O001 的明細
 ('O001', 'P001', '智慧手機', 12000.0, 1, 'B202401'),
 ('O001', 'P002', '保護殼', 500.5, 2, 'B202401'),

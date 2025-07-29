@@ -11,7 +11,7 @@ class AIService:
     
     def __init__(self):
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
     
     async def generate_sms(self, prompt: str, max_length: int = 70) -> str:
         """使用AI生成簡訊內容"""
@@ -26,7 +26,7 @@ class AIService:
             # 建立提示
             system_prompt = f"""你是一個專業的簡訊文案撰寫助手，請根據使用者的需求生成簡潔有力的促銷簡訊。
 要求：
-1. 簡訊長度不超過{max_length}個字（包含標點符號）
+1. 簡訊長度不超過{max_length}個字（包含標點符號），但不得太簡短或少於{max_length-15}個字
 2. 內容要有吸引力且符合台灣用語習慣
 3. 必須是銷售或促銷相關內容
 4. 不要包含任何個人資訊
@@ -69,39 +69,39 @@ class AIService:
             system_prompt = """你是一個SQL查詢生成助手，請將使用者的自然語言查詢轉換為PostgreSQL查詢語句。
 
 資料庫結構：
-1. custInfo (客戶基本資料表):
-   - CustId: 客戶編號 (主鍵)
-   - CustName: 客戶姓名
-   - Gender: 性別
-   - MobileNumber: 行動電話
-   - HomeNumber: 住家電話
-   - Address: 地址
-   - Age: 年齡
-   - Birthday: 生日
-   - Refuse: 是否拒絕電話聯絡 (boolean)
-   - CreateDate: 建立日期
+1. cust_info (客戶基本資料表):
+   - cust_id: 客戶編號 (主鍵)
+   - cust_name: 客戶姓名
+   - gender: 性別
+   - mobile_number: 行動電話
+   - home_number: 住家電話
+   - address: 地址
+   - age: 年齡
+   - birthday: 生日
+   - refuse: 是否拒絕電話聯絡 (boolean)
+   - create_date: 建立日期
 
-2. orderMaster (訂單主檔):
-   - OrderNo: 訂單編號 (主鍵)
-   - OrderDate: 訂購日期
-   - CustId: 客戶編號 (外鍵)
-   - Amount: 訂單金額
-   - PayMethod: 付款方式 (1:現金, 2:信用卡, 3:轉帳)
-   - DeliveryAddress: 送貨地址
-   - Receiver: 收貨人
-   - ReceiverPhone: 收貨人電話
-   - OrderType: 訂單類別 (1:一般, 2:預購)
-   - TakerId: 接單人員編號
-   - CreateDate: 建立日期
+2. order_master (訂單主檔):
+   - order_no: 訂單編號 (主鍵)
+   - order_date: 訂購日期
+   - cust_id: 客戶編號 (外鍵)
+   - amount: 訂單金額
+   - pay_method: 付款方式 (1:現金, 2:信用卡, 3:轉帳)
+   - delivery_address: 送貨地址
+   - receiver: 收貨人
+   - receiver_phone: 收貨人電話
+   - order_type: 訂單類別 (1:一般, 2:預購)
+   - taker_id: 接單人員編號
+   - create_date: 建立日期
 
-3. orderDetail (訂單明細):
+3. order_detail (訂單明細):
    - rowkey: 序號 (主鍵)
-   - OrderNo: 訂單編號 (外鍵)
-   - ProductId: 產品編號
-   - ProductTitle: 產品名稱
-   - UnitPrice: 單價
-   - Qty: 數量
-   - BatchNo: 批號
+   - order_no: 訂單編號 (外鍵)
+   - product_id: 產品編號
+   - product_title: 產品名稱
+   - unit_price: 單價
+   - qty: 數量
+   - batch_no: 批號
 
 限制：
 - 只能查詢上述三個表格
@@ -124,18 +124,16 @@ class AIService:
                 return "超出範圍無法回答"
             
             # 檢查是否只涉及允許的表格
-            allowed_tables = ['custInfo', 'orderMaster', 'orderDetail']
+            allowed_tables = ['cust_info', 'order_master', 'order_detail']
             for table in allowed_tables:
                 if table not in sql_query and table.lower() not in sql_query.lower():
                     continue
             
             # 確保查詢包含電話號碼
-            if 'MobileNumber' not in sql_query and 'mobilenumber' not in sql_query.lower():
+            if 'mobile_number' not in sql_query:
                 # 自動加入電話號碼
-                if 'FROM "custInfo"' in sql_query:
-                    sql_query = sql_query.replace('SELECT', 'SELECT "MobileNumber", ')
-                elif 'from custinfo' in sql_query.lower():
-                    sql_query = sql_query.replace('select', 'SELECT "MobileNumber", ')
+                if 'FROM cust_info' in sql_query:
+                    sql_query = sql_query.replace('SELECT', 'SELECT mobile_number, ')
             
             return sql_query
             

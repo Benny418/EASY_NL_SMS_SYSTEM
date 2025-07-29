@@ -73,7 +73,7 @@ class DatabaseHandler:
         """根據SQL查詢取得客戶資料"""
         try:
             # 檢查查詢是否只涉及允許的表格
-            allowed_tables = ['"custInfo"', '"orderMaster"', '"orderDetail"']
+            allowed_tables = ['cust_info', 'order_master', 'order_detail']
             query_lower = sql_query.lower()
             
             # 基本的安全檢查
@@ -87,29 +87,29 @@ class DatabaseHandler:
             
             # 處理個資隱碼
             for row in results:
-                if 'CustName' in row and row['CustName']:
-                    name = row['CustName']
+                if 'cust_name' in row and row['cust_name']:
+                    name = row['cust_name']
                     if len(name) > 2:
-                        row['CustName'] = name[0] + '*' * (len(name) - 2) + name[-1]
+                        row['cust_name'] = name[0] + '*' * (len(name) - 2) + name[-1]
                     else:
-                        row['CustName'] = name[0] + '*'
+                        row['cust_name'] = name[0] + '*'
                 
-                if 'MobileNumber' in row and row['MobileNumber']:
-                    phone = row['MobileNumber']
+                if 'mobile_number' in row and row['mobile_number']:
+                    phone = row['mobile_number']
                     if len(phone) >= 10:
-                        row['MobileNumber'] = phone[:3] + '****' + phone[-3:]
+                        row['mobile_number'] = phone[:3] + '****' + phone[-3:]
                 
-                if 'HomeNumber' in row and row['HomeNumber']:
-                    home = row['HomeNumber']
+                if 'home_number' in row and row['home_number']:
+                    home = row['home_number']
                     if len(home) >= 8:
-                        row['HomeNumber'] = home[:2] + '****' + home[-2:]
+                        row['home_number'] = home[:2] + '****' + home[-2:]
                 
-                if 'Address' in row and row['Address']:
-                    address = row['Address']
+                if 'address' in row and row['address']:
+                    address = row['address']
                     if len(address) > 6:
                         mid = len(address) // 2
                         mask_len = min(4, len(address) - 6)
-                        row['Address'] = address[:mid-2] + '*' * mask_len + address[mid+2:]
+                        row['address'] = address[:mid-2] + '*' * mask_len + address[mid+2:]
             
             return results
             
@@ -121,8 +121,8 @@ class DatabaseHandler:
                           recipient_no: str, schedule_date: Optional[str] = None) -> int:
         """插入簡訊發送記錄"""
         query = """
-            INSERT INTO public."smsMessage" 
-            ("CreateDate", "MessageClass", "MessageBody", "RecipientNo", "ScheduleDate")
+            INSERT INTO public.sms_message 
+            (create_date, message_class, message_body, recipient_no, schedule_date)
             VALUES (NOW(), %s, %s, %s, %s)
             RETURNING smskey
         """
@@ -132,11 +132,11 @@ class DatabaseHandler:
     def get_pending_sms_messages(self) -> List[Dict[str, Any]]:
         """取得待發送的簡訊"""
         query = """
-            SELECT smskey, "MessageBody", "RecipientNo", "ScheduleDate"
-            FROM public."smsMessage"
-            WHERE "SendDate" IS NULL
-            AND ("ScheduleDate" IS NULL OR "ScheduleDate" <= NOW())
-            ORDER BY "CreateDate" ASC
+            SELECT smskey, message_body, recipient_no, schedule_date
+            FROM public.sms_message
+            WHERE send_date IS NULL
+            AND (schedule_date IS NULL OR schedule_date <= NOW())
+            ORDER BY create_date ASC
         """
         return self.execute_query(query)
     
@@ -144,11 +144,11 @@ class DatabaseHandler:
                          return_message: str, message_id: Optional[str] = None):
         """更新簡訊發送狀態"""
         query = """
-            UPDATE public."smsMessage"
-            SET "SendDate" = NOW(),
-                "ReturnCode" = %s,
-                "ReturnMessage" = %s,
-                "MessageId" = %s
+            UPDATE public.sms_message
+            SET send_date = NOW(),
+                return_code = %s,
+                return_message = %s,
+                message_id = %s
             WHERE smskey = %s
         """
         params = (return_code, return_message, message_id, smskey)
@@ -159,10 +159,10 @@ class DatabaseHandler:
         query = """
             SELECT 
                 COUNT(*) as total_count,
-                COUNT(CASE WHEN "SendDate" IS NOT NULL THEN 1 END) as sent_count,
-                COUNT(CASE WHEN "SendDate" IS NULL THEN 1 END) as pending_count,
-                COUNT(CASE WHEN "ReturnCode" = '00000' THEN 1 END) as success_count
-            FROM public."smsMessage"
+                COUNT(CASE WHEN send_date IS NOT NULL THEN 1 END) as sent_count,
+                COUNT(CASE WHEN send_date IS NULL THEN 1 END) as pending_count,
+                COUNT(CASE WHEN return_code = '00000' THEN 1 END) as success_count
+            FROM public.sms_message
         """
         result = self.execute_query(query)
         return result[0] if result else {}

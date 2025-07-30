@@ -149,7 +149,7 @@ sequenceDiagram
     U->>Web: 輸入自然語言查詢
     Web->>API: POST /parse-query
     API->>Gemini: 發送查詢請求
-    Note over Gemini: 限制只能查詢<br/>custInfo, orderMaster,<br/>orderDetail三個表
+    Note over Gemini: 限制只能查詢<br/>cust_info, order_master,<br/>order_detail三個表
     Gemini-->>API: 返回SQL查詢語句
     API->>DB: 執行SQL查詢
     DB-->>API: 返回查詢結果
@@ -163,57 +163,57 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    custInfo ||--o{ orderMaster : "has"
-    orderMaster ||--o{ orderDetail : "contains"
+    cust_info ||--o{ order_master : "has"
+    order_master ||--o{ order_detail : "contains"
     
-    custInfo {
-        string CustId PK
-        string CustName
-        string Gender
-        string MobileNumber
-        string HomeNumber
-        string Address
-        int Age
-        date Birthday
-        boolean Refuse
-        timestamp CreateDate
+    cust_info {
+        string cust_id PK
+        string cust_name
+        string gender
+        string mobile_number
+        string home_number
+        string address
+        int age
+        date birthday
+        boolean refuse
+        timestamp create_date
     }
     
-    orderMaster {
-        string OrderNo PK
-        timestamp OrderDate
-        string CustId FK
-        real Amount
-        smallint PayMethod
-        string DeliveryAddress
-        string Receiver
-        string ReceiverPhone
-        smallint OrderType
-        string TakerId
-        timestamp CreateDate
+    order_master {
+        string order_no PK
+        timestamp order_date
+        string cust_id FK
+        real amount
+        smallint pay_method
+        string delivery_address
+        string receiver
+        string receiver_phone
+        smallint order_type
+        string taker_id
+        timestamp create_date
     }
     
-    orderDetail {
+    order_detail {
         int rowkey PK
-        string OrderNo FK
-        string ProductId
-        string ProductTitle
-        real UnitPrice
-        smallint Qty
-        string BatchNo
+        string order_no FK
+        string product_id
+        string product_title
+        real unit_price
+        smallint qty
+        string batch_no
     }
     
-    smsMessage {
+    sms_message {
         int smskey PK
-        timestamp CreateDate
-        string MessageClass
-        string MessageBody
-        string RecipientNo
-        timestamp ScheduleDate
-        timestamp SendDate
-        string ReturnCode
-        string ReturnMessage
-        string MessageId
+        timestamp create_date
+        string message_class
+        string message_body
+        string recipient_no
+        timestamp schedule_date
+        timestamp send_date
+        string return_code
+        string return_message
+        string message_id
     }
 ```
 
@@ -380,7 +380,7 @@ query=找出最近一個月有購買的客戶
 POST /api/query-customers
 Content-Type: application/x-www-form-urlencoded
 
-sql_query=SELECT * FROM public."custInfo" LIMIT 10
+sql_query=SELECT * FROM public.cust_info LIMIT 10
 ```
 
 ## 專案結構

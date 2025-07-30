@@ -149,7 +149,7 @@ sequenceDiagram
     U->>Web: 輸入自然語言查詢
     Web->>API: POST /parse-query
     API->>Gemini: 發送查詢請求
-    Note over Gemini: 限制只能查詢<br/>custInfo, orderMaster,<br/>orderDetail三個表
+    Note over Gemini: 限制只能查詢<br/>cust_info, order_master,<br/>order_detail三個表
     Gemini-->>API: 返回SQL查詢語句
     API->>DB: 執行SQL查詢
     DB-->>API: 返回查詢結果

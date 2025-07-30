@@ -77,7 +77,7 @@ class DatabaseHandler:
             query_lower = sql_query.lower()
             
             # 基本的安全檢查
-            forbidden_keywords = ['drop', 'delete', 'update', 'insert', 'alter', 'create', 'truncate']
+            forbidden_keywords = ['drop ', 'delete ', 'update ', 'insert ', 'alter ', 'create ', 'truncate ']
             for keyword in forbidden_keywords:
                 if keyword in query_lower:
                     raise ValueError(f"不允許的操作: {keyword}")

@@ -2,3 +2,6 @@
 .python-version
 pyproject.toml
 uv.lock
+/logs/sms_system.log
+/__pycache__/*
+*/__pycache__/*

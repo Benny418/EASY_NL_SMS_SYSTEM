@@ -234,23 +234,18 @@
             </div>
             
             <div class="mb-4">
+                <div class="text-sm text-gray-600 mb-2">
+                    已選擇 <span x-text="selectedCustomers.length"></span> 位客戶
+                </div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    收件人 <span class="text-red-500">*</span>
+                    額外收件人
                 </label>
                 <textarea
                     x-model="recipients"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    :class="!recipients.trim() ? 'border-red-300' : ''"
                     rows="3"
-                    placeholder="請輸入電話號碼，多個號碼請用逗號分隔"
+                    placeholder="請輸入額外電話號碼，多個號碼請用逗號分隔"
                 ></textarea>
-                <div class="mt-1 text-sm text-gray-600">
-                    已選擇 <span x-text="selectedCustomers.length"></span> 位客戶
-                    <button @click="addSelectedCustomers()" class="ml-2 text-blue-500 hover:underline">加入選擇的客戶</button>
-                    <span x-show="!recipients.trim()" class="text-red-600 ml-2 block">
-                        <i class="fas fa-exclamation-circle"></i> 此欄位為必填
-                    </span>
-                </div>
             </div>
         </div>
         
@@ -260,7 +255,7 @@
                 @click="sendSMS()"
                 class="px-8 py-3 bg-red-500 text-white text-lg font-semibold rounded-md hover:bg-red-600 disabled:opacity-50"
                 :disabled="isSending"
-                :class="(!smsContent.trim() || !recipients.trim() || charCount > maxLength) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-600'"
+                :class="(!smsContent.trim() || (selectedCustomers.length === 0 && !recipients.trim()) || charCount > maxLength) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-600'"
             >
                 <span x-show="!isSending">
                     <i class="fas fa-paper-plane mr-2"></i>
@@ -410,17 +405,11 @@
                     }
                 },
                 
-                // 加入選擇的客戶
-                addSelectedCustomers() {
-                    if (this.selectedCustomers.length === 0) {
-                        this.showStatus('請先選擇客戶', 'error');
-                        return;
-                    }
-                    
-                    const currentRecipients = this.recipients ? this.recipients.split(',').map(r => r.trim()) : [];
-                    const newRecipients = [...new Set([...currentRecipients, ...this.selectedCustomers])];
-                    this.recipients = newRecipients.join(', ');
-                    this.showStatus('已加入選擇的客戶', 'success');
+                // 取得選擇的客戶ID
+                getSelectedCustomerIds() {
+                    return this.customerResults
+                        .filter(customer => this.selectedCustomers.includes(customer.mobile_number))
+                        .map(customer => customer.cust_id);
                 },
 
                 // 全選所有客戶
@@ -441,8 +430,12 @@
                         return;
                     }
                     
-                    if (!this.recipients.trim()) {
-                        this.showStatus('❌ 請輸入收件人電話', 'error');
+                    const selectedCustomerIds = this.getSelectedCustomerIds();
+                    const hasSelectedCustomers = selectedCustomerIds.length > 0;
+                    const hasExtraRecipients = this.recipients.trim().length > 0;
+                    
+                    if (!hasSelectedCustomers && !hasExtraRecipients) {
+                        this.showStatus('❌ 請至少選擇一位客戶或輸入額外收件人', 'error');
                         return;
                     }
                     
@@ -455,7 +448,8 @@
                     try {
                         const formData = new FormData();
                         formData.append('message_body', this.smsContent);
-                        formData.append('recipient_no', this.recipients);
+                        formData.append('extra_recipients', this.recipients);
+                        formData.append('selected_customer_ids', JSON.stringify(selectedCustomerIds));
                         
                         if (this.sendMode === 'scheduled') {
                             formData.append('message_class', 'SCHEDULED');
@@ -571,8 +565,10 @@
                 
                 // 計算屬性
                 get canSend() {
+                    const hasSelectedCustomers = this.selectedCustomers.length > 0;
+                    const hasExtraRecipients = this.recipients.trim().length > 0;
                     return this.smsContent.trim() &&
-                           this.recipients.trim() &&
+                           (hasSelectedCustomers || hasExtraRecipients) &&
                            this.charCount <= this.maxLength;
                 }
             }

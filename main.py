@@ -9,6 +9,7 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional
 import os
+import json
 
 # 導入模組
 from modules.db_handler import db_handler
@@ -185,11 +186,12 @@ async def query_customers(
 async def schedule_sms(
     message_class: str = Form(...),
     message_body: str = Form(...),
-    recipient_no: str = Form(...),
+    extra_recipients: str = Form(""),
+    selected_customer_ids: str = Form("[]"),
     schedule_date: Optional[str] = Form(None)
 ):
     """排程簡訊發送"""
-    try:
+    try:        
         # 驗證簡訊長度
         char_info = ai_service.validate_sms_length(message_body)
         if not char_info['is_valid']:
@@ -198,18 +200,38 @@ async def schedule_sms(
                 "message": f"簡訊長度超過限制（{char_info['max_length']}字）"
             }
         
+        # 解析客戶ID和額外收件人
+        try:
+            customer_ids = json.loads(selected_customer_ids)
+            #customer_ids = [int(id) for id in customer_ids]
+        except:
+            customer_ids = []
+        
+        # 取得選擇客戶的電話號碼
+        customer_phones = db_handler.get_phone_numbers_by_customer_ids(customer_ids)
+        
+        # 處理額外收件人
+        extra_phones = []
+        if extra_recipients.strip():
+            extra_phones = sms_gateway.format_phone_list(extra_recipients)
+        
+        # 合併所有電話號碼並去重
+        all_phones = list(set(customer_phones + extra_phones))
+        
+        if not all_phones:
+            return {
+                "success": False,
+                "message": "沒有有效的收件人"
+            }
+        
         # 驗證電話號碼
-        phone_list = sms_gateway.format_phone_list(recipient_no)
-        is_valid, valid_phones = sms_gateway.validate_phone_numbers(phone_list)
+        is_valid, valid_phones = sms_gateway.validate_phone_numbers(all_phones)
         
         if not valid_phones:
             return {
                 "success": False,
                 "message": "沒有有效的電話號碼"
             }
-        
-        # 格式化電話號碼
-        formatted_recipients = ','.join(valid_phones)
         
         # 解析排程日期
         schedule_dt = None
@@ -222,20 +244,29 @@ async def schedule_sms(
                     "message": "排程日期格式錯誤"
                 }
         
-        # 插入資料庫
-        sms_key = db_handler.insert_sms_message(
-            message_class=message_class,
-            message_body=message_body,
-            recipient_no=formatted_recipients,
-            schedule_date=schedule_dt
-        )
+        # 批次處理：每20筆為一組
+        batch_size = 20
+        sms_keys = []
         
-        logger.info(f"簡訊已排程: sms_key={sms_key}")
+        for i in range(0, len(valid_phones), batch_size):
+            batch_phones = valid_phones[i:i+batch_size]
+            formatted_recipients = ','.join(batch_phones)
+            
+            # 插入資料庫
+            sms_key = db_handler.insert_sms_message(
+                message_class=message_class,
+                message_body=message_body,
+                recipient_no=formatted_recipients,
+                schedule_date=schedule_dt
+            )
+            sms_keys.append(sms_key)
+        
+        logger.info(f"簡訊已排程: sms_keys={sms_keys}")
         
         return {
             "success": True,
-            "message": "簡訊已成功排程",
-            "sms_key": sms_key
+            "message": f"簡訊已成功排程（{len(sms_keys)}批次）",
+            "sms_keys": sms_keys
         }
         
     except Exception as e:
@@ -248,7 +279,8 @@ async def schedule_sms(
 @app.post("/api/send-sms-now")
 async def send_sms_now(
     message_body: str = Form(...),
-    recipient_no: str = Form(...)
+    extra_recipients: str = Form(""),
+    selected_customer_ids: str = Form("[]")
 ):
     """立即發送簡訊"""
     try:
@@ -260,9 +292,32 @@ async def send_sms_now(
                 "message": f"簡訊長度超過限制（{char_info['max_length']}字）"
             }
         
+        # 解析客戶ID和額外收件人
+        try:
+            customer_ids = json.loads(selected_customer_ids)
+            #customer_ids = [int(id) for id in customer_ids]
+        except:
+            customer_ids = []
+        
+        # 取得選擇客戶的電話號碼
+        customer_phones = db_handler.get_phone_numbers_by_customer_ids(customer_ids)
+        
+        # 處理額外收件人
+        extra_phones = []
+        if extra_recipients.strip():
+            extra_phones = sms_gateway.format_phone_list(extra_recipients)
+        
+        # 合併所有電話號碼並去重
+        all_phones = list(set(customer_phones + extra_phones))
+        
+        if not all_phones:
+            return {
+                "success": False,
+                "message": "沒有有效的收件人"
+            }
+        
         # 驗證電話號碼
-        phone_list = sms_gateway.format_phone_list(recipient_no)
-        is_valid, valid_phones = sms_gateway.validate_phone_numbers(phone_list)
+        is_valid, valid_phones = sms_gateway.validate_phone_numbers(all_phones)
         
         if not valid_phones:
             return {
@@ -270,32 +325,44 @@ async def send_sms_now(
                 "message": "沒有有效的電話號碼"
             }
         
-        # 發送簡訊
-        success, result = await sms_gateway.send_sms(valid_phones, message_body)
+        # 批次處理：每20筆為一組
+        batch_size = 20
+        sms_keys = []
+        results = []
         
-        if success:
-            # 記錄發送結果
-            formatted_recipients = ','.join(valid_phones)
-            sms_key = db_handler.insert_sms_message(
-                message_class='IMMEDIATE',
-                message_body=message_body,
-                recipient_no=formatted_recipients,
-                schedule_date=None
-            )
+        for i in range(0, len(valid_phones), batch_size):
+            batch_phones = valid_phones[i:i+batch_size]
             
-            db_handler.update_sms_status(
-                sms_key,
-                result['result_code'],
-                result['result_text'],
-                result['message_id']
-            )
+            # 發送簡訊
+            success, result = await sms_gateway.send_sms(batch_phones, message_body)
+            results.append(result)
             
-            logger.info(f"簡訊已發送: sms_key={sms_key}")
+            if success:
+                # 記錄發送結果
+                formatted_recipients = ','.join(batch_phones)
+                sms_key = db_handler.insert_sms_message(
+                    message_class='IMMEDIATE',
+                    message_body=message_body,
+                    recipient_no=formatted_recipients,
+                    schedule_date=None,
+                    send_date=datetime.fromisoformat(datetime.now().replace('T', ' '))
+                )
+                sms_keys.append(sms_key)
+                
+                db_handler.update_sms_status(
+                    sms_key,
+                    result['result_code'],
+                    result['result_text'],
+                    result['message_id']
+                )
+                
+                logger.info(f"簡訊已發送: sms_key={sms_key}")
         
         return {
-            "success": success,
-            "message": result['result_text'],
-            "result": result
+            "success": True,
+            "message": f"簡訊已發送（{len(sms_keys)}批次）",
+            "sms_keys": sms_keys,
+            "results": results
         }
         
     except Exception as e:

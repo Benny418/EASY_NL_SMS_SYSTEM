@@ -118,15 +118,16 @@ class DatabaseHandler:
             raise
     
     def insert_sms_message(self, message_class: str, message_body: str, 
-                          recipient_no: str, schedule_date: Optional[str] = None) -> int:
+                          recipient_no: str, schedule_date: Optional[str] = None, 
+                          send_date: Optional[str] = None) -> int:
         """插入簡訊發送記錄"""
         query = """
             INSERT INTO public.sms_message 
-            (create_date, message_class, message_body, recipient_no, schedule_date)
-            VALUES (NOW(), %s, %s, %s, %s)
+            (create_date, message_class, message_body, recipient_no, schedule_date, send_date)
+            VALUES (NOW(), %s, %s, %s, %s, %s)
             RETURNING smskey
         """
-        params = (message_class, message_body, recipient_no, schedule_date)
+        params = (message_class, message_body, recipient_no, schedule_date, send_date)
         return self.execute_insert(query, params)
     
     def get_pending_sms_messages(self) -> List[Dict[str, Any]]:
@@ -166,6 +167,48 @@ class DatabaseHandler:
         """
         result = self.execute_query(query)
         return result[0] if result else {}
+    
+    def get_phone_numbers_by_customer_ids(self, customer_ids: List[int]) -> List[str]:
+        """根據客戶ID列表取得電話號碼"""
+        if not customer_ids:
+            return []
+        
+        query = """
+            SELECT mobile_number 
+            FROM public.cust_info 
+            WHERE cust_id = ANY(%s) 
+            AND mobile_number IS NOT NULL 
+            AND mobile_number != ''
+            AND refuse != true
+        """
+        results = self.execute_query(query, (customer_ids,))
+        return [row['mobile_number'] for row in results]
+    
+    def batch_insert_sms_messages(self, messages: List[Dict[str, Any]]) -> List[int]:
+        """批次插入簡訊發送記錄"""
+        if not messages:
+            return []
+        
+        sms_keys = []
+        with self.get_cursor() as cursor:
+            for message in messages:
+                query = """
+                    INSERT INTO public.sms_message 
+                    (create_date, message_class, message_body, recipient_no, schedule_date)
+                    VALUES (NOW(), %s, %s, %s, %s)
+                    RETURNING smskey
+                """
+                params = (
+                    message['message_class'],
+                    message['message_body'],
+                    message['recipient_no'],
+                    message.get('schedule_date')
+                )
+                cursor.execute(query, params)
+                cursor.execute("SELECT LASTVAL()")
+                sms_keys.append(cursor.fetchone()[0])
+        
+        return sms_keys
 
 # 建立全域實例
 db_handler = DatabaseHandler()

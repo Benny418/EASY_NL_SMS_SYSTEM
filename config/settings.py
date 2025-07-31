@@ -7,9 +7,9 @@ class Settings:
     # 資料庫設定
     DB_HOST: str = os.getenv("DB_HOST", "localhost")
     DB_PORT: int = int(os.getenv("DB_PORT", "5432"))
-    DB_NAME: str = os.getenv("DB_NAME", "ENLSMS")
+    DB_NAME: str = os.getenv("DB_NAME", "sms_system")
     DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "postgres")
     
     # FastAPI設定
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
@@ -27,11 +27,11 @@ class Settings:
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "gemini")  # 可選值: "gemini" 或 "openai"
     
     # Gemini API設定
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "AI")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "XXXXXXXXXXXX")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     
     # OpenAI API設定
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "sk-or-v15")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "sk-or-v1-XXXXXXXXXXX")
     OPENAI_API_BASE: str = os.getenv("OPEN_BASE_URL", "https://openrouter.ai/api/v1")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "mistralai/mistral-small-3.1-24b-instruct:free")
     

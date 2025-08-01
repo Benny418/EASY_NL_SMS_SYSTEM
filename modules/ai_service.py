@@ -1,17 +1,74 @@
 import google.generativeai as genai
+import openai
 from typing import Optional, Dict, Any
 import logging
 import re
+from abc import ABC, abstractmethod
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+class AIProvider(ABC):
+    """AI提供者抽象基類"""
+    
+    @abstractmethod
+    async def generate_content_async(self, prompt: str) -> str:
+        """生成內容"""
+        pass
+
+class GeminiProvider(AIProvider):
+    """Gemini AI提供者"""
+    
+    def __init__(self, api_key: str, model: str):
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(model)
+    
+    async def generate_content_async(self, prompt: str) -> str:
+        """使用Gemini生成內容"""
+        response = await self.model.generate_content_async(prompt)
+        return response.text.strip()
+
+class OpenAIProvider(AIProvider):
+    """OpenAI提供者"""
+    
+    def __init__(self, api_key: str, base_url: str, model: str):
+        if not api_key:
+            raise ValueError("OpenAI API key is required")
+        self.client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self.model = model
+    
+    async def generate_content_async(self, prompt: str) -> str:
+        """使用OpenAI生成內容"""
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        return response.choices[0].message.content.strip()
 
 class AIService:
     """AI服務類別，提供簡訊生成和自然語言查詢功能"""
     
     def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
+        self.provider = self._create_provider()
+    
+    def _create_provider(self) -> AIProvider:
+        """根據設定建立對應的AI提供者"""
+        provider_type = settings.AI_PROVIDER.lower()
+        
+        if provider_type == "gemini":
+            return GeminiProvider(
+                api_key=settings.GEMINI_API_KEY,
+                model=settings.GEMINI_MODEL
+            )
+        elif provider_type == "openai":
+            return OpenAIProvider(
+                api_key=settings.OPENAI_API_KEY,
+                base_url=settings.OPENAI_API_BASE,
+                model=settings.OPENAI_MODEL
+            )
+        else:
+            raise ValueError(f"不支援的AI提供者: {provider_type}")
     
     async def generate_sms(self, prompt: str, max_length: int = 70) -> str:
         """使用AI生成簡訊內容"""
@@ -31,21 +88,19 @@ class AIService:
 3. 必須是銷售或促銷相關內容
 4. 不要包含任何個人資訊
 5. 使用繁體中文
-6. 必需包含公司品牌名稱【AAA關心您】
+6. 必需包含公司品牌名稱【健康GG關心您】
 
 使用者需求：{prompt}
 
 請直接回應簡訊內容，不要包含其他說明。"""
 
-            response = await self.model.generate_content_async(system_prompt)
-            sms_content = response.text.strip()
+            sms_content = await self.provider.generate_content_async(system_prompt)
             
             # 檢查長度
             if len(sms_content) > max_length:
                 # 如果超過長度，要求重新生成
                 retry_prompt = f"{system_prompt}\n\n請將以下內容縮短至{max_length}字以內：{sms_content}"
-                retry_response = await self.model.generate_content_async(retry_prompt)
-                sms_content = retry_response.text.strip()
+                sms_content = await self.provider.generate_content_async(retry_prompt)
             
             # 再次檢查長度
             if len(sms_content) > max_length:
@@ -109,13 +164,14 @@ class AIService:
 - 只能使用SELECT語句
 - 必須返回客戶的電話號碼
 - 查詢結果應包含客戶基本資訊
+- 依照系統提示及使用者查詢的提示直接生成SQL查詢語句，勿做額外多餘的假設
+- 查詢結果要避免同一個客戶若多筆資料
 
 請直接回應SQL查詢語句，不要包含其他說明。
 
 使用者查詢：""" + natural_query
 
-            response = await self.model.generate_content_async(system_prompt)
-            sql_query = response.text.strip()
+            sql_query = await self.provider.generate_content_async(system_prompt)
             
             # 清理SQL查詢
             sql_query = sql_query.replace('```sql', '').replace('```', '').strip()

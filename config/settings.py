@@ -23,9 +23,12 @@ class Settings:
     SMS_DR_FLAG: bool = os.getenv("SMS_DR_FLAG", "true").lower() == "true"
     SMS_FIRST_FAIL_FLAG: bool = os.getenv("SMS_FIRST_FAIL_FLAG", "false").lower() == "true"
     
+    # AI服務設定
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "gemini")  # 可選值: "gemini" 或 "openai"
+    
     # Gemini API設定
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "XXXXXXXXXXXX")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "XXXXXXXXXX")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
     
     # OpenAI API設定
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "sk-or-v1-XXXXXXXXXXX")

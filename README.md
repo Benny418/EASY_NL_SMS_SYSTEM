@@ -4,7 +4,7 @@
 
 ## 系統特色
 
-- 🤖 **AI 簡訊生成**：使用 Google Gemini API 根據提示詞生成促銷簡訊
+- 🤖 **AI 簡訊生成**：使用 Google Gemini API 或 OpenAI GPT 根據提示詞生成促銷簡訊
 - 🔍 **自然語言查詢**：透過自然語言查詢客戶資料，自動轉換為 SQL
 - 📱 **簡訊發送**：支援立即發送和預約發送
 - 📊 **客戶管理**：整合客戶資料查詢與篩選
@@ -17,7 +17,7 @@
 - **後端**：FastAPI (Python)
 - **資料庫**：PostgreSQL
 - **前端**：HTML + HTMX + Alpine.js + Tailwind CSS
-- **AI 服務**：Google Gemini API
+- **AI 服務**：Google Gemini API 或 OpenAI 相容API
 - **簡訊服務**：外部 SMS Gateway
 
 ## 系統架構圖
@@ -223,7 +223,7 @@ erDiagram
 
 - Python 3.8+
 - PostgreSQL 12+
-- Google Gemini API Key
+- Google Gemini API Key 或 OpenAI API Key
 
 ### 安裝步驟
 
@@ -316,6 +316,10 @@ SCHEDULE_INTERVAL=60
 2. 輸入提示詞（例如：「週年慶促銷活動」）
 3. 點擊「生成簡訊」
 4. 系統會自動生成符合長度限制的促銷簡訊
+
+支援兩種 AI 提供者：
+- **Google Gemini**（預設）
+- **OpenAI GPT**（需設定 OPENAI_API_KEY）
 
 ### 2. 自定義簡訊
 

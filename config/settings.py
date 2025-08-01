@@ -24,7 +24,13 @@ class Settings:
     SMS_FIRST_FAIL_FLAG: bool = os.getenv("SMS_FIRST_FAIL_FLAG", "false").lower() == "true"
     
     # Gemini API設定
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "XXXXXXXXXXXX")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    
+    # OpenAI API設定
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "sk-or-v1-XXXXXXXXXXX")
+    OPENAI_API_BASE: str = os.getenv("OPEN_BASE_URL", "https://openrouter.ai/api/v1")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "mistralai/mistral-small-3.1-24b-instruct:free")
     
     # 日誌設定
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
